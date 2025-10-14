@@ -8,7 +8,6 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [selectedRole, setSelectedRole] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPassword, setShowAdminPassword] = useState(false);
 
@@ -37,7 +36,6 @@ const Login = () => {
   };
 
   const handleRoleSelection = (role) => {
-    setSelectedRole(role);
     if (role === 'security') {
       setMessage('Redirecting to Security Dashboard...');
       setTimeout(() => navigate('/dashboard'), 800);

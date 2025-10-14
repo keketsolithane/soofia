@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 
 const ClockBook = () => {
@@ -13,10 +13,7 @@ const ClockBook = () => {
     surname: '',
     subject: ''
   });
-useEffect(() => {
-  fetchTeachers();
-  initializeWeek();
-}, []); 
+
   // Initialize current week
   const initializeWeek = () => {
     const today = new Date();
@@ -51,7 +48,7 @@ useEffect(() => {
     return date.toLocaleDateString('en-US', { weekday: 'short' });
   };
 
-  const fetchTeachers = async () => {
+  const fetchTeachers = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('teachers')
@@ -64,7 +61,7 @@ useEffect(() => {
     } catch (error) {
       console.error('Error fetching teachers:', error);
     }
-  };
+  }, []); // Add any dependencies if fetchTeachers uses props or state
 
   const fetchAttendance = async (teachersList) => {
     try {
@@ -94,6 +91,11 @@ useEffect(() => {
       console.error('Error fetching attendance:', error);
     }
   };
+
+  useEffect(() => {
+    fetchTeachers();
+    initializeWeek();
+  }, [fetchTeachers]); // Added fetchTeachers to dependency array
 
   const handleAddTeacher = async (e) => {
     e.preventDefault();
