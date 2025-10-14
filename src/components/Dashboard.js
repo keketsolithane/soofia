@@ -26,8 +26,8 @@ const ClockBook = () => {
     setCurrentWeek(weekString);
   };
 
-  // Get current week dates (Monday to Friday)
-  const getWeekDates = () => {
+  // Get current week dates (Monday to Friday) - wrapped in useCallback
+  const getWeekDates = useCallback(() => {
     if (!currentWeek) return [];
     
     const [startStr] = currentWeek.split('_to_');
@@ -40,7 +40,7 @@ const ClockBook = () => {
       dates.push(date.toISOString().split('T')[0]);
     }
     return dates;
-  };
+  }, [currentWeek]); // Added currentWeek as dependency
 
   // Get day name from date
   const getDayName = (dateStr) => {
@@ -75,7 +75,7 @@ const ClockBook = () => {
     } catch (error) {
       console.error('Error fetching attendance:', error);
     }
-  }, [currentWeek]); // Added currentWeek as dependency since getWeekDates uses it
+  }, [getWeekDates]); // Added getWeekDates as dependency
 
   const fetchTeachers = useCallback(async () => {
     try {
@@ -129,17 +129,20 @@ const ClockBook = () => {
   const saveAttendance = async () => {
     setLoading(true);
     try {
-      const weekDates = getWeekDates(); // Using weekDates here
+      const weekDates = getWeekDates(); // Now properly used
       const attendanceRecords = [];
 
       Object.keys(attendance).forEach(key => {
         const [teacherId, date] = key.split('_');
-        attendanceRecords.push({
-          teacher_id: teacherId,
-          date: date,
-          status: attendance[key],
-          week: currentWeek
-        });
+        // Only include dates that are in the current week
+        if (weekDates.includes(date)) {
+          attendanceRecords.push({
+            teacher_id: teacherId,
+            date: date,
+            status: attendance[key],
+            week: currentWeek
+          });
+        }
       });
 
       // Delete existing records for this week first
@@ -149,11 +152,13 @@ const ClockBook = () => {
         .eq('week', currentWeek);
 
       // Insert new records
-      const { error } = await supabase
-        .from('attendance')
-        .insert(attendanceRecords);
+      if (attendanceRecords.length > 0) {
+        const { error } = await supabase
+          .from('attendance')
+          .insert(attendanceRecords);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
       
       alert('Attendance saved successfully!');
     } catch (error) {
@@ -189,7 +194,7 @@ const ClockBook = () => {
 
   const printWeeklyReport = () => {
     const printWindow = window.open('', '_blank');
-    const weekDates = getWeekDates(); // This variable is now used
+    const weekDates = getWeekDates(); // This variable is now properly used
     
     const printContent = `
       <!DOCTYPE html>
@@ -269,7 +274,7 @@ const ClockBook = () => {
     printWindow.document.close();
   };
 
-  // Remove the unused weekDates variable at line 133 and use it directly in JSX
+  // Remove the unused weekDates variable and use getWeekDates() directly in JSX
   return (
     <div className="clock-book">
       <div className="management-header">
