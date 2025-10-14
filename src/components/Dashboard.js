@@ -48,22 +48,7 @@ const ClockBook = () => {
     return date.toLocaleDateString('en-US', { weekday: 'short' });
   };
 
-  const fetchTeachers = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('teachers')
-        .select('*')
-        .order('surname');
-
-      if (error) throw error;
-      setTeachers(data || []);
-      fetchAttendance(data || []);
-    } catch (error) {
-      console.error('Error fetching teachers:', error);
-    }
-  }, []); // Add any dependencies if fetchTeachers uses props or state
-
-  const fetchAttendance = async (teachersList) => {
+  const fetchAttendance = useCallback(async (teachersList) => {
     try {
       const weekDates = getWeekDates();
       if (weekDates.length === 0) return;
@@ -90,7 +75,22 @@ const ClockBook = () => {
     } catch (error) {
       console.error('Error fetching attendance:', error);
     }
-  };
+  }, [currentWeek]); // Added currentWeek as dependency since getWeekDates uses it
+
+  const fetchTeachers = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('teachers')
+        .select('*')
+        .order('surname');
+
+      if (error) throw error;
+      setTeachers(data || []);
+      fetchAttendance(data || []);
+    } catch (error) {
+      console.error('Error fetching teachers:', error);
+    }
+  }, [fetchAttendance]); // Added fetchAttendance to dependency array
 
   useEffect(() => {
     fetchTeachers();
@@ -129,8 +129,8 @@ const ClockBook = () => {
   const saveAttendance = async () => {
     setLoading(true);
     try {
+      const weekDates = getWeekDates(); // Using weekDates here
       const attendanceRecords = [];
-      const weekDates = getWeekDates();
 
       Object.keys(attendance).forEach(key => {
         const [teacherId, date] = key.split('_');
@@ -189,7 +189,7 @@ const ClockBook = () => {
 
   const printWeeklyReport = () => {
     const printWindow = window.open('', '_blank');
-    const weekDates = getWeekDates();
+    const weekDates = getWeekDates(); // This variable is now used
     
     const printContent = `
       <!DOCTYPE html>
@@ -269,8 +269,7 @@ const ClockBook = () => {
     printWindow.document.close();
   };
 
-  const weekDates = getWeekDates();
-
+  // Remove the unused weekDates variable at line 133 and use it directly in JSX
   return (
     <div className="clock-book">
       <div className="management-header">
@@ -387,7 +386,7 @@ const ClockBook = () => {
               <tr>
                 <th className="teacher-col">Teacher</th>
                 <th>Subject</th>
-                {weekDates.map(date => (
+                {getWeekDates().map(date => (
                   <th key={date} className="day-col">
                     <div>{getDayName(date)}</div>
                     <div className="date">{new Date(date).toLocaleDateString()}</div>
@@ -408,7 +407,7 @@ const ClockBook = () => {
                       <span className="no-subject">-</span>
                     )}
                   </td>
-                  {weekDates.map(date => {
+                  {getWeekDates().map(date => {
                     const key = `${teacher.id}_${date}`;
                     const status = attendance[key] || 'absent';
                     return (
@@ -443,6 +442,7 @@ const ClockBook = () => {
         </div>
       </div>
 
+      {/* ... rest of the styles remain the same ... */}
       <style jsx>{`
         .clock-book {
           padding: 2rem;
