@@ -13,12 +13,10 @@ const ClockBook = () => {
     surname: '',
     subject: ''
   });
-
- useEffect(() => {
-  initializeWeek
-  fetchTeachers();
-}, [fetchTeachers]);
-
+useEffect(() => {
+    initializeWeek();
+    fetchTeachers();
+  }, [fetchTeachers]);
 
   // Initialize current week
   const initializeWeek = () => {
