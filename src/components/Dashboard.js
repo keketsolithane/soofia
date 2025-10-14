@@ -14,10 +14,9 @@ const ClockBook = () => {
     subject: ''
   });
 useEffect(() => {
-    initializeWeek();
-    fetchTeachers();
-  }, [initializeWeek, fetchTeachers]);
-  
+  fetchTeachers();
+  initializeWeek();
+}, []); 
   // Initialize current week
   const initializeWeek = () => {
     const today = new Date();
