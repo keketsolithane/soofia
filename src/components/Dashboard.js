@@ -6,13 +6,7 @@ const ClockBook = () => {
   const [attendance, setAttendance] = useState({});
   const [currentWeek, setCurrentWeek] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showAddTeacher, setShowAddTeacher] = useState(false);
-
-  const [newTeacher, setNewTeacher] = useState({
-    name: '',
-    surname: '',
-    subject: ''
-  });
+  const [timeEntries, setTimeEntries] = useState({});
 
   // Initialize current week
   const initializeWeek = () => {
@@ -26,7 +20,7 @@ const ClockBook = () => {
     setCurrentWeek(weekString);
   };
 
-  // Get current week dates (Monday to Friday) - wrapped in useCallback
+  // Get current week dates (Monday to Friday)
   const getWeekDates = useCallback(() => {
     if (!currentWeek) return [];
     
@@ -40,7 +34,7 @@ const ClockBook = () => {
       dates.push(date.toISOString().split('T')[0]);
     }
     return dates;
-  }, [currentWeek]); // Added currentWeek as dependency
+  }, [currentWeek]);
 
   // Get day name from date
   const getDayName = (dateStr) => {
@@ -63,19 +57,27 @@ const ClockBook = () => {
 
       // Initialize attendance state
       const attendanceState = {};
+      const timeEntriesState = {};
+      
       teachersList.forEach(teacher => {
         weekDates.forEach(date => {
           const key = `${teacher.id}_${date}`;
           const record = data?.find(a => a.teacher_id === teacher.id && a.date === date);
           attendanceState[key] = record?.status || 'absent';
+          timeEntriesState[key] = {
+            clockIn: record?.clock_in || '',
+            clockOut: record?.clock_out || '',
+            hours: record?.hours || ''
+          };
         });
       });
       
       setAttendance(attendanceState);
+      setTimeEntries(timeEntriesState);
     } catch (error) {
       console.error('Error fetching attendance:', error);
     }
-  }, [getWeekDates]); // Added getWeekDates as dependency
+  }, [getWeekDates]);
 
   const fetchTeachers = useCallback(async () => {
     try {
@@ -90,33 +92,12 @@ const ClockBook = () => {
     } catch (error) {
       console.error('Error fetching teachers:', error);
     }
-  }, [fetchAttendance]); // Added fetchAttendance to dependency array
+  }, [fetchAttendance]);
 
   useEffect(() => {
     fetchTeachers();
     initializeWeek();
-  }, [fetchTeachers]); // Added fetchTeachers to dependency array
-
-  const handleAddTeacher = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const { error } = await supabase
-        .from('teachers')
-        .insert([newTeacher]);
-
-      if (error) throw error;
-
-      setNewTeacher({ name: '', surname: '', subject: '' });
-      setShowAddTeacher(false);
-      fetchTeachers();
-    } catch (error) {
-      console.error('Error adding teacher:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchTeachers]);
 
   const handleAttendanceChange = (teacherId, date, status) => {
     const key = `${teacherId}_${date}`;
@@ -126,20 +107,34 @@ const ClockBook = () => {
     }));
   };
 
+  const handleTimeChange = (teacherId, date, field, value) => {
+    const key = `${teacherId}_${date}`;
+    setTimeEntries(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        [field]: value
+      }
+    }));
+  };
+
   const saveAttendance = async () => {
     setLoading(true);
     try {
-      const weekDates = getWeekDates(); // Now properly used
+      const weekDates = getWeekDates();
       const attendanceRecords = [];
 
       Object.keys(attendance).forEach(key => {
         const [teacherId, date] = key.split('_');
-        // Only include dates that are in the current week
         if (weekDates.includes(date)) {
+          const timeEntry = timeEntries[key] || {};
           attendanceRecords.push({
             teacher_id: teacherId,
             date: date,
             status: attendance[key],
+            clock_in: timeEntry.clockIn || '',
+            clock_out: timeEntry.clockOut || '',
+            hours: timeEntry.hours || '',
             week: currentWeek
           });
         }
@@ -160,121 +155,15 @@ const ClockBook = () => {
         if (error) throw error;
       }
       
-      alert('Attendance saved successfully!');
+      alert('Attendance and time records saved successfully!');
     } catch (error) {
       console.error('Error saving attendance:', error);
-      alert('Error saving attendance: ' + error.message);
+      alert('Error saving records: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const deletePastWeeks = async () => {
-    if (!window.confirm('Are you sure you want to delete all past weeks attendance? This action cannot be undone.')) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('attendance')
-        .delete()
-        .lt('week', currentWeek);
-
-      if (error) throw error;
-      
-      alert('Past weeks attendance deleted successfully!');
-    } catch (error) {
-      console.error('Error deleting past weeks:', error);
-      alert('Error deleting past weeks: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const printWeeklyReport = () => {
-    const printWindow = window.open('', '_blank');
-    const weekDates = getWeekDates(); // This variable is now properly used
-    
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Weekly Attendance Report - ${currentWeek}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-          .school-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-          .report-title { font-size: 18px; margin-bottom: 10px; }
-          .week-range { font-size: 16px; color: #666; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-          th { background-color: #f5f5f5; font-weight: bold; }
-          .present { background-color: #d4edda; color: #155724; }
-          .absent { background-color: #f8d7da; color: #721c24; }
-          .teacher-name { font-weight: bold; }
-          .print-date { text-align: right; margin-top: 30px; font-style: italic; }
-          @media print {
-            body { margin: 0; }
-            .no-print { display: none; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="school-name">Soofia High School</div>
-          <div class="report-title">Weekly Teacher Attendance Report</div>
-          <div class="week-range">Week: ${currentWeek.replace('_to_', ' to ')}</div>
-        </div>
-        
-        <table>
-          <thead>
-            <tr>
-              <th>Teacher</th>
-              <th>Subject</th>
-              ${weekDates.map(date => `
-                <th>${getDayName(date)}<br>${new Date(date).toLocaleDateString()}</th>
-              `).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${teachers.map(teacher => `
-              <tr>
-                <td class="teacher-name">${teacher.surname}, ${teacher.name}</td>
-                <td>${teacher.subject || '-'}</td>
-                ${weekDates.map(date => {
-                  const key = `${teacher.id}_${date}`;
-                  const status = attendance[key] || 'absent';
-                  return `
-                    <td class="${status}">${status.toUpperCase()}</td>
-                  `;
-                }).join('')}
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        
-        <div class="print-date">
-          Printed on: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
-        </div>
-        
-        <div class="no-print" style="margin-top: 20px; text-align: center;">
-          <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; margin: 10px;">
-            Print Report
-          </button>
-          <button onclick="window.close()" style="padding: 10px 20px; font-size: 16px; margin: 10px;">
-            Close Window
-          </button>
-        </div>
-      </body>
-      </html>
-    `;
-
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-  };
-
-  // Remove the unused weekDates variable and use getWeekDates() directly in JSX
   return (
     <div className="clock-book">
       <div className="management-header">
@@ -286,102 +175,19 @@ const ClockBook = () => {
         </div>
         <div className="management-buttons">
           <button 
-            onClick={() => setShowAddTeacher(true)}
-            className="add-btn secondary"
-          >
-            Add New Teacher
-          </button>
-          <button 
             onClick={saveAttendance}
             className="add-btn primary"
             disabled={loading}
           >
-            {loading ? 'Saving...' : 'Save Attendance'}
-          </button>
-          <button 
-            onClick={printWeeklyReport}
-            className="add-btn info"
-          >
-            Print Weekly Report
-          </button>
-          <button 
-            onClick={deletePastWeeks}
-            className="add-btn danger"
-            disabled={loading}
-          >
-            Delete Past Weeks
+            {loading ? 'Saving...' : 'Save All Records'}
           </button>
         </div>
       </div>
 
-      {/* Add Teacher Modal */}
-      {showAddTeacher && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h3>Add New Teacher</h3>
-              <button 
-                className="close-btn"
-                onClick={() => setShowAddTeacher(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <form onSubmit={handleAddTeacher}>
-              <div className="form-group">
-                <label>Name</label>
-                <input
-                  type="text"
-                  value={newTeacher.name}
-                  onChange={(e) => setNewTeacher({...newTeacher, name: e.target.value})}
-                  required
-                  placeholder="Enter first name"
-                />
-              </div>
-              <div className="form-group">
-                <label>Surname</label>
-                <input
-                  type="text"
-                  value={newTeacher.surname}
-                  onChange={(e) => setNewTeacher({...newTeacher, surname: e.target.value})}
-                  required
-                  placeholder="Enter last name"
-                />
-              </div>
-              <div className="form-group">
-                <label>Subject</label>
-                <input
-                  type="text"
-                  value={newTeacher.subject}
-                  onChange={(e) => setNewTeacher({...newTeacher, subject: e.target.value})}
-                  placeholder="Enter subject"
-                />
-              </div>
-              <div className="modal-buttons">
-                <button 
-                  type="button" 
-                  className="btn-cancel"
-                  onClick={() => setShowAddTeacher(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn-submit"
-                  disabled={loading}
-                >
-                  {loading ? 'Adding...' : 'Add Teacher'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Attendance Table */}
       <div className="attendance-section">
         <div className="table-header">
-          <h3>Weekly Attendance</h3>
+          <h3>Weekly Attendance & Time Tracking</h3>
           <span className="count-badge">{teachers.length} teachers</span>
         </div>
         
@@ -395,6 +201,12 @@ const ClockBook = () => {
                   <th key={date} className="day-col">
                     <div>{getDayName(date)}</div>
                     <div className="date">{new Date(date).toLocaleDateString()}</div>
+                    <div className="time-headers">
+                      <span>Status</span>
+                      <span>Clock In</span>
+                      <span>Clock Out</span>
+                      <span>Hours</span>
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -415,16 +227,47 @@ const ClockBook = () => {
                   {getWeekDates().map(date => {
                     const key = `${teacher.id}_${date}`;
                     const status = attendance[key] || 'absent';
+                    const timeEntry = timeEntries[key] || { clockIn: '', clockOut: '', hours: '' };
+                    
                     return (
                       <td key={date} className="attendance-cell">
-                        <select
-                          value={status}
-                          onChange={(e) => handleAttendanceChange(teacher.id, date, e.target.value)}
-                          className={`status-select status-${status}`}
-                        >
-                          <option value="present">Present</option>
-                          <option value="absent">Absent</option>
-                        </select>
+                        <div className="time-fields">
+                          <select
+                            value={status}
+                            onChange={(e) => handleAttendanceChange(teacher.id, date, e.target.value)}
+                            className={`status-select status-${status}`}
+                          >
+                            <option value="present">Present</option>
+                            <option value="absent">Absent</option>
+                          </select>
+                          
+                          <input
+                            type="time"
+                            value={timeEntry.clockIn}
+                            onChange={(e) => handleTimeChange(teacher.id, date, 'clockIn', e.target.value)}
+                            className="time-input"
+                            placeholder="--:--"
+                          />
+                          
+                          <input
+                            type="time"
+                            value={timeEntry.clockOut}
+                            onChange={(e) => handleTimeChange(teacher.id, date, 'clockOut', e.target.value)}
+                            className="time-input"
+                            placeholder="--:--"
+                          />
+                          
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="0"
+                            max="24"
+                            value={timeEntry.hours}
+                            onChange={(e) => handleTimeChange(teacher.id, date, 'hours', e.target.value)}
+                            className="hours-input"
+                            placeholder="0.0"
+                          />
+                        </div>
                       </td>
                     );
                   })}
@@ -435,19 +278,12 @@ const ClockBook = () => {
           
           {teachers.length === 0 && (
             <div className="empty-state">
-              <p>No teachers found. Add teachers to start tracking attendance.</p>
-              <button 
-                onClick={() => setShowAddTeacher(true)}
-                className="add-btn primary"
-              >
-                Add First Teacher
-              </button>
+              <p>No teachers found.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ... rest of the styles remain the same ... */}
       <style jsx>{`
         .clock-book {
           padding: 2rem;
@@ -507,36 +343,6 @@ const ClockBook = () => {
           transform: translateY(-1px);
         }
 
-        .add-btn.secondary {
-          background: #10b981;
-          color: white;
-        }
-
-        .add-btn.secondary:hover:not(:disabled) {
-          background: #059669;
-          transform: translateY(-1px);
-        }
-
-        .add-btn.info {
-          background: #06b6d4;
-          color: white;
-        }
-
-        .add-btn.info:hover:not(:disabled) {
-          background: #0891b2;
-          transform: translateY(-1px);
-        }
-
-        .add-btn.danger {
-          background: #ef4444;
-          color: white;
-        }
-
-        .add-btn.danger:hover:not(:disabled) {
-          background: #dc2626;
-          transform: translateY(-1px);
-        }
-
         .add-btn:disabled {
           opacity: 0.6;
           cursor: not-allowed;
@@ -581,7 +387,7 @@ const ClockBook = () => {
         .attendance-table {
           width: 100%;
           border-collapse: collapse;
-          min-width: 800px;
+          min-width: 1000px;
         }
 
         .attendance-table th {
@@ -600,13 +406,22 @@ const ClockBook = () => {
         }
 
         .day-col {
-          min-width: 120px;
+          min-width: 200px;
         }
 
         .day-col .date {
           font-size: 0.75rem;
           color: #64748b;
           margin-top: 0.25rem;
+        }
+
+        .time-headers {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr 1fr;
+          gap: 0.5rem;
+          margin-top: 0.5rem;
+          font-size: 0.7rem;
+          font-weight: 500;
         }
 
         .attendance-table td {
@@ -625,16 +440,22 @@ const ClockBook = () => {
           vertical-align: middle;
         }
 
+        .time-fields {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr 1fr;
+          gap: 0.5rem;
+          align-items: center;
+        }
+
         .status-select {
           padding: 0.5rem;
           border: 2px solid #e2e8f0;
           border-radius: 6px;
-          font-size: 0.875rem;
+          font-size: 0.75rem;
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s ease;
           width: 100%;
-          max-width: 100px;
         }
 
         .status-select:focus {
@@ -652,6 +473,30 @@ const ClockBook = () => {
           background: #f8d7da;
           color: #721c24;
           border-color: #f5c6cb;
+        }
+
+        .time-input, .hours-input {
+          padding: 0.5rem;
+          border: 2px solid #e2e8f0;
+          border-radius: 6px;
+          font-size: 0.75rem;
+          width: 100%;
+          text-align: center;
+        }
+
+        .time-input:focus, .hours-input:focus {
+          outline: none;
+          border-color: #3b82f6;
+        }
+
+        .hours-input {
+          -moz-appearance: textfield;
+        }
+
+        .hours-input::-webkit-outer-spin-button,
+        .hours-input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
         }
 
         .subject-tag {
@@ -675,138 +520,8 @@ const ClockBook = () => {
         }
 
         .empty-state p {
-          margin: 0 0 1.5rem 0;
-          font-size: 1rem;
-        }
-
-        /* Modal Styles */
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          padding: 1rem;
-        }
-
-        .modal {
-          background: white;
-          border-radius: 12px;
-          width: 100%;
-          max-width: 500px;
-          max-height: 90vh;
-          overflow-y: auto;
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1.5rem 2rem;
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .modal-header h3 {
           margin: 0;
-          color: #1e293b;
-          font-size: 1.25rem;
-          font-weight: 600;
-        }
-
-        .close-btn {
-          background: none;
-          border: none;
-          font-size: 1.25rem;
-          color: #64748b;
-          cursor: pointer;
-          padding: 0.25rem;
-          border-radius: 4px;
-          transition: background 0.2s ease;
-        }
-
-        .close-btn:hover {
-          background: #f1f5f9;
-        }
-
-        form {
-          padding: 2rem;
-        }
-
-        .form-group {
-          margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          color: #374151;
-          font-weight: 500;
-          font-size: 0.875rem;
-        }
-
-        .form-group input {
-          width: 100%;
-          padding: 0.75rem;
-          border: 2px solid #e2e8f0;
-          border-radius: 8px;
-          font-size: 0.875rem;
-          transition: border-color 0.2s ease;
-        }
-
-        .form-group input:focus {
-          outline: none;
-          border-color: #3b82f6;
-        }
-
-        .modal-buttons {
-          display: flex;
-          gap: 1rem;
-          justify-content: flex-end;
-          margin-top: 2rem;
-          padding-top: 1.5rem;
-          border-top: 1px solid #e2e8f0;
-        }
-
-        .btn-cancel {
-          padding: 0.75rem 1.5rem;
-          background: white;
-          border: 2px solid #e2e8f0;
-          border-radius: 8px;
-          color: #64748b;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-cancel:hover {
-          border-color: #3b82f6;
-          color: #3b82f6;
-        }
-
-        .btn-submit {
-          padding: 0.75rem 1.5rem;
-          background: #3b82f6;
-          border: none;
-          border-radius: 8px;
-          color: white;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background 0.2s ease;
-        }
-
-        .btn-submit:hover:not(:disabled) {
-          background: #2563eb;
-        }
-
-        .btn-submit:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
+          font-size: 1rem;
         }
 
         /* Responsive Design */
@@ -834,16 +549,15 @@ const ClockBook = () => {
             padding: 0.75rem 0.5rem;
           }
 
-          .modal {
-            margin: 1rem;
+          .time-fields {
+            gap: 0.25rem;
           }
 
-          form {
-            padding: 1.5rem;
-          }
-
-          .modal-buttons {
-            flex-direction: column;
+          .status-select,
+          .time-input,
+          .hours-input {
+            font-size: 0.7rem;
+            padding: 0.25rem;
           }
         }
       `}</style>
