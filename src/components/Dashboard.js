@@ -119,50 +119,63 @@ const ClockBook = () => {
   };
 
   const saveAttendance = async () => {
-    setLoading(true);
-    try {
-      const weekDates = getWeekDates();
-      const attendanceRecords = [];
+  setLoading(true);
+  try {
+    const weekDates = getWeekDates();
 
-      Object.keys(attendance).forEach(key => {
-        const [teacherId, date] = key.split('_');
-        if (weekDates.includes(date)) {
-          const timeEntry = timeEntries[key] || {};
-          attendanceRecords.push({
-            teacher_id: teacherId,
-            date: date,
-            status: attendance[key],
-            clock_in: timeEntry.clockIn || '',
-            clock_out: timeEntry.clockOut || '',
-            hours: timeEntry.hours || '',
-            week: currentWeek
-          });
-        }
-      });
+    for (const key of Object.keys(attendance)) {
+      const [teacherId, date] = key.split('_');
+      if (!weekDates.includes(date)) continue;
 
-      // Delete existing records for this week first
-      await supabase
+      const timeEntry = timeEntries[key] || {};
+
+      // Prepare record data
+      const record = {
+        teacher_id: parseInt(teacherId),
+        date: date,
+        status: attendance[key],
+        clock_in: timeEntry.clockIn || null,
+        clock_out: timeEntry.clockOut || null,
+        hours: timeEntry.hours !== "" ? parseFloat(timeEntry.hours) : null,
+        week: currentWeek
+      };
+
+      // Check if record exists
+      const { data: existing, error: selectError } = await supabase
         .from('attendance')
-        .delete()
-        .eq('week', currentWeek);
+        .select('id')
+        .eq('teacher_id', record.teacher_id)
+        .eq('date', record.date)
+        .single();
 
-      // Insert new records
-      if (attendanceRecords.length > 0) {
-        const { error } = await supabase
-          .from('attendance')
-          .insert(attendanceRecords);
-
-        if (error) throw error;
+      if (selectError && selectError.code !== 'PGRST116') { // PGRST116 = no rows found
+        throw selectError;
       }
-      
-      alert('Attendance and time records saved successfully!');
-    } catch (error) {
-      console.error('Error saving attendance:', error);
-      alert('Error saving records: ' + error.message);
-    } finally {
-      setLoading(false);
+
+      if (existing) {
+        // Update existing record
+        const { error: updateError } = await supabase
+          .from('attendance')
+          .update(record)
+          .eq('id', existing.id);
+        if (updateError) throw updateError;
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from('attendance')
+          .insert([record]);
+        if (insertError) throw insertError;
+      }
     }
-  };
+
+    alert('Attendance and time records saved successfully!');
+  } catch (error) {
+    console.error('Error saving attendance:', error);
+    alert('Error saving records: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="clock-book">
