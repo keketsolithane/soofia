@@ -118,7 +118,7 @@ const ClockBook = () => {
     }));
   };
 
-  const saveAttendance = async () => {
+ const saveAttendance = async () => {
   setLoading(true);
   try {
     const weekDates = getWeekDates();
@@ -129,10 +129,9 @@ const ClockBook = () => {
 
       const timeEntry = timeEntries[key] || {};
 
-      // Prepare record data
       const record = {
-        teacher_id: parseInt(teacherId),
-        date: date,
+        teacher_id: teacherId, // UUID
+        date,
         status: attendance[key],
         clock_in: timeEntry.clockIn || null,
         clock_out: timeEntry.clockOut || null,
@@ -140,31 +139,21 @@ const ClockBook = () => {
         week: currentWeek
       };
 
-      // Check if record exists
       const { data: existing, error: selectError } = await supabase
         .from('attendance')
         .select('id')
-        .eq('teacher_id', record.teacher_id)
-        .eq('date', record.date)
+        .eq('teacher_id', teacherId)
+        .eq('date', date)
         .single();
 
-      if (selectError && selectError.code !== 'PGRST116') { // PGRST116 = no rows found
+      if (selectError && selectError.code !== 'PGRST116') {
         throw selectError;
       }
 
       if (existing) {
-        // Update existing record
-        const { error: updateError } = await supabase
-          .from('attendance')
-          .update(record)
-          .eq('id', existing.id);
-        if (updateError) throw updateError;
+        await supabase.from('attendance').update(record).eq('id', existing.id);
       } else {
-        // Insert new record
-        const { error: insertError } = await supabase
-          .from('attendance')
-          .insert([record]);
-        if (insertError) throw insertError;
+        await supabase.from('attendance').insert([record]);
       }
     }
 
@@ -176,6 +165,7 @@ const ClockBook = () => {
     setLoading(false);
   }
 };
+
 
   return (
     <div className="clock-book">
