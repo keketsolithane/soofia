@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const ClockBook = () => {
   const [teachers, setTeachers] = useState([]);
@@ -7,12 +9,9 @@ const ClockBook = () => {
   const [currentWeek, setCurrentWeek] = useState('');
   const [loading, setLoading] = useState(false);
   const [showAddTeacher, setShowAddTeacher] = useState(false);
+  const [editingTeacher, setEditingTeacher] = useState(null);
 
-  const [newTeacher, setNewTeacher] = useState({
-    name: '',
-    surname: '',
-    subject: ''
-  });
+  const [teacherForm, setTeacherForm] = useState({ name: '', surname: '', subject: '' });
 
   const initializeWeek = () => {
     const today = new Date();
@@ -66,7 +65,6 @@ const ClockBook = () => {
           };
         });
       });
-
       setAttendance(attendanceState);
     } catch (error) {
       console.error('Error fetching attendance:', error);
@@ -79,8 +77,8 @@ const ClockBook = () => {
         .from('teachers')
         .select('*')
         .order('surname');
-
       if (error) throw error;
+
       setTeachers(data || []);
       fetchAttendance(data || []);
     } catch (error) {
@@ -89,91 +87,79 @@ const ClockBook = () => {
   }, [fetchAttendance]);
 
   useEffect(() => {
-    fetchTeachers();
     initializeWeek();
+    fetchTeachers();
   }, [fetchTeachers]);
 
-  const handleAddTeacher = async (e) => {
+  const handleSubmitTeacher = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('teachers')
-        .insert([newTeacher]);
-      if (error) throw error;
+      if (editingTeacher) {
+        // Update teacher
+        const { error } = await supabase
+          .from('teachers')
+          .update(teacherForm)
+          .eq('id', editingTeacher.id);
+        if (error) throw error;
+      } else {
+        // Add new teacher
+        const { error } = await supabase
+          .from('teachers')
+          .insert([teacherForm]);
+        if (error) throw error;
+      }
 
-      setNewTeacher({ name: '', surname: '', subject: '' });
+      setTeacherForm({ name: '', surname: '', subject: '' });
       setShowAddTeacher(false);
+      setEditingTeacher(null);
       fetchTeachers();
     } catch (error) {
-      console.error('Error adding teacher:', error);
+      console.error('Error saving teacher:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const printWeeklyReport = () => {
-    const printWindow = window.open('', '_blank');
+  const handleEditTeacher = (teacher) => {
+    setEditingTeacher(teacher);
+    setTeacherForm({ name: teacher.name, surname: teacher.surname, subject: teacher.subject });
+    setShowAddTeacher(true);
+  };
+
+  const handleDeleteTeacher = async (teacherId) => {
+    if (!window.confirm('Are you sure you want to delete this teacher?')) return;
+    try {
+      const { error } = await supabase
+        .from('teachers')
+        .delete()
+        .eq('id', teacherId);
+      if (error) throw error;
+      fetchTeachers();
+    } catch (error) {
+      console.error('Error deleting teacher:', error);
+    }
+  };
+
+  const printClockBookPDF = () => {
+    const doc = new jsPDF();
+    doc.text(`Teacher Clock Book - Week: ${currentWeek.replace('_to_', ' to ')}`, 14, 15);
     const weekDates = getWeekDates();
-    
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Weekly Attendance Report - ${currentWeek}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-          .school-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-          .report-title { font-size: 18px; margin-bottom: 10px; }
-          .week-range { font-size: 16px; color: #666; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-          th { background-color: #f5f5f5; font-weight: bold; }
-          .present { background-color: #d4edda; color: #155724; }
-          .absent { background-color: #f8d7da; color: #721c24; }
-          .teacher-name { font-weight: bold; }
-          .print-date { text-align: right; margin-top: 30px; font-style: italic; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="school-name">Soofia High School</div>
-          <div class="report-title">Weekly Teacher Attendance Report</div>
-          <div class="week-range">Week: ${currentWeek.replace('_to_', ' to ')}</div>
-        </div>
-        
-        <table>
-          <thead>
-            <tr>
-              <th>Teacher</th>
-              <th>Subject</th>
-              ${weekDates.map(date => `<th>${getDayName(date)}<br>${new Date(date).toLocaleDateString()}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${teachers.map(teacher => `
-              <tr>
-                <td class="teacher-name">${teacher.surname}, ${teacher.name}</td>
-                <td>${teacher.subject || '-'}</td>
-                ${weekDates.map(date => {
-                  const key = `${teacher.id}_${date}`;
-                  const record = attendance[key] || { status: 'absent', clock_in: '--:--', clock_out: '--:--' };
-                  return `<td class="${record.status}">${record.status.toUpperCase()}<br>In: ${record.clock_in} Out: ${record.clock_out}</td>`;
-                }).join('')}
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        
-        <div class="print-date">
-          Printed on: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
-        </div>
-      </body>
-      </html>
-    `;
-    printWindow.document.write(printContent);
-    printWindow.document.close();
+    const tableData = teachers.map(teacher => [
+      `${teacher.surname}, ${teacher.name}`,
+      teacher.subject || '-',
+      ...weekDates.map(date => {
+        const key = `${teacher.id}_${date}`;
+        const record = attendance[key] || { status: 'absent', clock_in: '--:--', clock_out: '--:--' };
+        return `${record.status.toUpperCase()} (In: ${record.clock_in} Out: ${record.clock_out})`;
+      })
+    ]);
+    doc.autoTable({
+      head: [['Teacher', 'Subject', ...weekDates.map(d => getDayName(d))]],
+      body: tableData,
+      startY: 25,
+    });
+    doc.save(`ClockBook_${currentWeek}.pdf`);
   };
 
   return (
@@ -186,35 +172,35 @@ const ClockBook = () => {
           </p>
         </div>
         <div className="management-buttons">
-          <button onClick={() => setShowAddTeacher(true)} className="add-btn secondary">Add New Teacher</button>
-          <button onClick={printWeeklyReport} className="add-btn info">Print Weekly Report</button>
+          <button onClick={() => { setShowAddTeacher(true); setEditingTeacher(null); setTeacherForm({ name: '', surname: '', subject: '' }); }} className="add-btn secondary">Add New Teacher</button>
+          <button onClick={printClockBookPDF} className="add-btn info">Print as PDF</button>
         </div>
       </div>
 
-      {/* Add Teacher Modal */}
+      {/* Add/Edit Teacher Modal */}
       {showAddTeacher && (
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h3>Add New Teacher</h3>
+              <h3>{editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}</h3>
               <button className="close-btn" onClick={() => setShowAddTeacher(false)}>✕</button>
             </div>
-            <form onSubmit={handleAddTeacher}>
+            <form onSubmit={handleSubmitTeacher}>
               <div className="form-group">
                 <label>Name</label>
-                <input type="text" value={newTeacher.name} onChange={e => setNewTeacher({...newTeacher, name: e.target.value})} required placeholder="Enter first name"/>
+                <input type="text" value={teacherForm.name} onChange={e => setTeacherForm({...teacherForm, name: e.target.value})} required />
               </div>
               <div className="form-group">
                 <label>Surname</label>
-                <input type="text" value={newTeacher.surname} onChange={e => setNewTeacher({...newTeacher, surname: e.target.value})} required placeholder="Enter last name"/>
+                <input type="text" value={teacherForm.surname} onChange={e => setTeacherForm({...teacherForm, surname: e.target.value})} required />
               </div>
               <div className="form-group">
                 <label>Subject</label>
-                <input type="text" value={newTeacher.subject} onChange={e => setNewTeacher({...newTeacher, subject: e.target.value})} placeholder="Enter subject"/>
+                <input type="text" value={teacherForm.subject} onChange={e => setTeacherForm({...teacherForm, subject: e.target.value})} />
               </div>
               <div className="modal-buttons">
                 <button type="button" className="btn-cancel" onClick={() => setShowAddTeacher(false)}>Cancel</button>
-                <button type="submit" className="btn-submit" disabled={loading}>{loading ? 'Adding...' : 'Add Teacher'}</button>
+                <button type="submit" className="btn-submit" disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>
               </div>
             </form>
           </div>
@@ -230,26 +216,28 @@ const ClockBook = () => {
           <table className="attendance-table">
             <thead>
               <tr>
-                <th className="teacher-col">Teacher</th>
+                <th>Teacher</th>
                 <th>Subject</th>
                 {getWeekDates().map(date => (
-                  <th key={date} className="day-col">
-                    <div>{getDayName(date)}</div>
-                    <div className="date">{new Date(date).toLocaleDateString()}</div>
-                  </th>
+                  <th key={date}>{getDayName(date)}<br/>{new Date(date).toLocaleDateString()}</th>
                 ))}
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {teachers.map(teacher => (
                 <tr key={teacher.id}>
-                  <td className="teacher-name">{teacher.surname}, {teacher.name}</td>
+                  <td>{teacher.surname}, {teacher.name}</td>
                   <td>{teacher.subject || '-'}</td>
                   {getWeekDates().map(date => {
                     const key = `${teacher.id}_${date}`;
                     const record = attendance[key] || { status: 'absent', clock_in: '--:--', clock_out: '--:--' };
-                    return <td key={date} className={`attendance-cell ${record.status}`}>{record.status.toUpperCase()}<br/>In: {record.clock_in} Out: {record.clock_out}</td>;
+                    return <td key={date}>{record.status.toUpperCase()}<br/>In: {record.clock_in} Out: {record.clock_out}</td>;
                   })}
+                  <td>
+                    <button onClick={() => handleEditTeacher(teacher)} className="action-btn edit">Edit</button>
+                    <button onClick={() => handleDeleteTeacher(teacher.id)} className="action-btn delete">Delete</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -260,19 +248,15 @@ const ClockBook = () => {
       <style jsx>{`
         .clock-book { padding: 2rem; background: #f8fafc; min-height: 100vh; }
         .management-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; background: white; padding: 1.5rem 2rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .header-content h2 { margin: 0 0 0.5rem 0; color: #1e293b; font-size: 1.75rem; font-weight: 700; }
-        .week-display { margin: 0; color: #64748b; font-size: 1rem; font-weight: 500; }
-        .management-buttons { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-        .add-btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 0.875rem; white-space: nowrap; }
+        .add-btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
         .add-btn.secondary { background: #10b981; color: white; } 
         .add-btn.info { background: #06b6d4; color: white; }
-        .attendance-section { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
-        .table-header { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 2rem; border-bottom: 1px solid #e2e8f0; }
-        .attendance-table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        .attendance-table th, .attendance-table td { border: 1px solid #ddd; padding: 0.75rem; text-align: center; }
-        .teacher-name { text-align: left; font-weight: 600; }
-        .attendance-cell.present { background: #d4edda; color: #155724; }
-        .attendance-cell.absent { background: #f8d7da; color: #721c24; }
+        .attendance-section { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; margin-top: 1rem; }
+        .attendance-table { width: 100%; border-collapse: collapse; }
+        .attendance-table th, .attendance-table td { border: 1px solid #ddd; padding: 0.5rem; text-align: center; }
+        .action-btn { margin: 0 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; border: none; border-radius: 4px; cursor: pointer; }
+        .action-btn.edit { background: #3b82f6; color: white; }
+        .action-btn.delete { background: #ef4444; color: white; }
       `}</style>
     </div>
   );
