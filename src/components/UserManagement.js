@@ -154,17 +154,9 @@ const ClockBook = () => {
     }
   };
 
-  const printAttendancePDF = () => {
+  const printClockBookPDF = () => {
     const doc = new jsPDF();
-    
-    // Title
-    doc.setFontSize(16);
-    doc.text(`Attendance Report - Week: ${currentWeek.replace('_to_', ' to ')}`, 14, 15);
-    
-    // Date generated
-    doc.setFontSize(10);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 22);
-    
+    doc.text(`Teacher Clock Book - Week: ${currentWeek.replace('_to_', ' to ')}`, 14, 15);
     const weekDates = getWeekDates();
     const tableData = teachers.map(teacher => [
       `${teacher.surname}, ${teacher.name}`,
@@ -172,32 +164,15 @@ const ClockBook = () => {
       ...weekDates.map(date => {
         const key = `${teacher.id}_${date}`;
         const record = attendance[key] || { status: 'absent', clock_in: '--:--', clock_out: '--:--' };
-        return `${record.status.toUpperCase()}\nIn: ${record.clock_in}\nOut: ${record.clock_out}`;
+        return `${record.status.toUpperCase()} (In: ${record.clock_in} Out: ${record.clock_out})`;
       })
     ]);
-
-    // Table headers
-    const headers = ['Teacher', 'Subject', ...weekDates.map(d => `${getDayName(d)}\n${new Date(d).toLocaleDateString()}`)];
-
     doc.autoTable({
-      head: [headers],
+      head: [['Teacher', 'Subject', ...weekDates.map(d => getDayName(d))]],
       body: tableData,
-      startY: 30,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [41, 128, 185] },
-      columnStyles: {
-        0: { cellWidth: 30 },
-        1: { cellWidth: 25 },
-        ...Object.fromEntries(weekDates.map((_, index) => [index + 2, { cellWidth: 25 }]))
-      },
-      didDrawPage: (data) => {
-        // Footer
-        doc.setFontSize(8);
-        doc.text(`Page ${data.pageNumber}`, data.settings.margin.left, doc.internal.pageSize.height - 10);
-      }
+      startY: 25,
     });
-
-    doc.save(`Attendance_Report_${currentWeek}.pdf`);
+    doc.save(`ClockBook_${currentWeek}.pdf`);
   };
 
   return (
@@ -212,7 +187,7 @@ const ClockBook = () => {
         <div className="management-buttons">
           <button onClick={() => { setShowAddTeacher(true); setEditingTeacher(null); setTeacherForm({ name: '', surname: '', subject: '' }); }} className="add-btn secondary">Add New Teacher</button>
           <button onClick={() => setShowTeachersTable(true)} className="add-btn warning">Manage Teachers</button>
-          <button onClick={printAttendancePDF} className="add-btn info">Print Attendance PDF</button>
+          <button onClick={printClockBookPDF} className="add-btn info">Print as PDF</button>
         </div>
       </div>
 
@@ -320,6 +295,7 @@ const ClockBook = () => {
                   })}
                   <td>
                     <button onClick={() => handleEditTeacher(teacher)} className="action-btn edit">Edit</button>
+                    <button onClick={() => handleDeleteTeacher(teacher.id)} className="action-btn delete">Delete</button>
                   </td>
                 </tr>
               ))}
