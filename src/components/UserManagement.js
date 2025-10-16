@@ -24,7 +24,6 @@ const ClockBook = () => {
     setCurrentWeek(`${startOfWeek.toISOString().split('T')[0]}_to_${endOfWeek.toISOString().split('T')[0]}`);
   };
 
-  // Get all dates for current week
   const getWeekDates = useCallback(() => {
     if (!currentWeek) return [];
     const [startStr] = currentWeek.split('_to_');
@@ -43,7 +42,6 @@ const ClockBook = () => {
     return date.toLocaleDateString('en-US', { weekday: 'short' });
   };
 
-  // Fetch attendance data
   const fetchAttendance = useCallback(async (teachersList) => {
     try {
       const weekDates = getWeekDates();
@@ -75,7 +73,6 @@ const ClockBook = () => {
     }
   }, [getWeekDates]);
 
-  // Fetch teachers list
   const fetchTeachers = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -96,7 +93,6 @@ const ClockBook = () => {
     fetchTeachers();
   }, [fetchTeachers]);
 
-  // Add/Edit teacher
   const handleSubmitTeacher = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -153,7 +149,6 @@ const ClockBook = () => {
     }
   };
 
-  // Print clock book as PDF
   const printClockBookPDF = () => {
     const doc = new jsPDF();
     doc.text(`Teacher Clock Book - Week: ${currentWeek.replace('_to_', ' to ')}`, 14, 15);
@@ -303,35 +298,43 @@ const ClockBook = () => {
         </div>
       </div>
 
-      <style jsx>{`
-        .clock-book { padding: 2rem; background: #f8fafc; min-height: 100vh; }
-        .management-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; background: white; padding: 1.5rem 2rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .add-btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin-left: 0.5rem; }
-        .add-btn.secondary { background: #10b981; color: white; } 
-        .add-btn.info { background: #06b6d4; color: white; }
-        .add-btn.warning { background: #f59e0b; color: white; }
-        .attendance-section { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; margin-top: 1rem; }
+      <style>{`
+        .clock-book { padding: 2rem; background: #f4f6f9; min-height: 100vh; font-family: Arial, sans-serif; }
+        .management-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; background: #fff; padding: 1.5rem 2rem; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
+        .management-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .add-btn { padding: 0.6rem 1.2rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .add-btn.secondary { background: #10b981; color: #fff; }
+        .add-btn.warning { background: #f59e0b; color: #fff; }
+        .add-btn.info { background: #06b6d4; color: #fff; }
+        .add-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+        .attendance-section { background: #fff; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.08); overflow-x: auto; margin-top: 1rem; padding: 1rem; }
         .attendance-table { width: 100%; border-collapse: collapse; }
-        .attendance-table th, .attendance-table td { border: 1px solid #ddd; padding: 0.5rem; text-align: center; }
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .modal { background: white; border-radius: 12px; padding: 0; max-width: 500px; width: 90%; max-height: 90vh; overflow: hidden; }
-        .modal.large-modal { max-width: 800px; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid #e5e7eb; }
-        .modal-header h3 { margin: 0; }
-        .close-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; }
-        .form-group { padding: 1rem 1.5rem; }
-        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
-        .form-group input { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
-        .modal-buttons { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1.5rem; border-top: 1px solid #e5e7eb; }
-        .btn-cancel { padding: 0.5rem 1rem; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; }
-        .btn-submit { padding: 0.5rem 1rem; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; }
-        .teachers-table { width: 100%; border-collapse: collapse; }
-        .teachers-table th, .teachers-table td { border: 1px solid #ddd; padding: 0.75rem; text-align: left; }
-        .teachers-table th { background: #f8fafc; font-weight: 600; }
-        .empty-state { padding: 2rem; text-align: center; color: #6b7280; }
-        .action-btn { margin: 0 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; border: none; border-radius: 4px; cursor: pointer; }
-        .action-btn.edit { background: #3b82f6; color: white; }
-        .action-btn.delete { background: #ef4444; color: white; }
+        .attendance-table th, .attendance-table td { border: 1px solid #ddd; padding: 0.75rem; text-align: center; font-size: 0.9rem; }
+        .attendance-table th { background: #f0f0f0; color: #333; font-weight: 600; }
+        .attendance-table tr:nth-child(even) { background: #fafafa; }
+        .attendance-table tr:hover { background: #e6f2ff; transition: 0.3s; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; right:0; bottom:0; background: rgba(0,0,0,0.4); display:flex; justify-content:center; align-items:center; z-index:1000; }
+        .modal { background:#fff; border-radius:12px; max-width:600px; width:90%; max-height:90vh; overflow:auto; }
+        .modal.large-modal { max-width:800px; }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; padding:1rem 1.5rem; border-bottom:1px solid #e0e0e0; }
+        .modal-header h3 { margin:0; color:#2b5fc0; }
+        .close-btn { background:none; border:none; font-size:1.2rem; cursor:pointer; }
+        .form-group { padding:1rem 1.5rem; }
+        .form-group label { display:block; margin-bottom:0.5rem; font-weight:600; }
+        .form-group input { width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:6px; }
+        .modal-buttons { display:flex; justify-content:flex-end; gap:0.75rem; padding:1rem 1.5rem; border-top:1px solid #e0e0e0; }
+        .btn-cancel { padding:0.5rem 1rem; background:#6b7280; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+        .btn-submit { padding:0.5rem 1rem; background:#10b981; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+        .teachers-table { width:100%; border-collapse:collapse; }
+        .teachers-table th, .teachers-table td { border:1px solid #ddd; padding:0.75rem; text-align:left; font-size:0.9rem; }
+        .teachers-table th { background:#f0f0f0; font-weight:600; }
+        .action-btn { margin:0 0.25rem; padding:0.25rem 0.5rem; font-size:0.8rem; border:none; border-radius:4px; cursor:pointer; }
+        .action-btn.edit { background:#3b82f6; color:#fff; }
+        .action-btn.delete { background:#ef4444; color:#fff; }
+        .action-btn:hover { opacity:0.85; }
+        .empty-state { padding:2rem; text-align:center; color:#6b7280; }
       `}</style>
     </div>
   );
