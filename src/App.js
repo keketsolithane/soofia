@@ -8,14 +8,12 @@ import InstallPrompt from './components/InstallPrompt';
 function App() {
   return (
     <Router>
-      <div className="App">
-        <InstallPrompt />
-        <Routes>
-          <Route path="/" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/usermanagement" element={<UserManagement />} />
-        </Routes>
-      </div>
+      <InstallPrompt />
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/UserManagement" element={<UserManagement />} />
+      </Routes>
     </Router>
   );
 }
