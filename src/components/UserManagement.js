@@ -10,6 +10,7 @@ const ClockBook = () => {
   const [loading, setLoading] = useState(false);
   const [showAddTeacher, setShowAddTeacher] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState(null);
+  const [showTeachersTable, setShowTeachersTable] = useState(false);
 
   const [teacherForm, setTeacherForm] = useState({ name: '', surname: '', subject: '' });
 
@@ -130,20 +131,40 @@ const ClockBook = () => {
   const handleDeleteTeacher = async (teacherId) => {
     if (!window.confirm('Are you sure you want to delete this teacher?')) return;
     try {
+      // First delete attendance records for this teacher
+      const { error: attendanceError } = await supabase
+        .from('attendance')
+        .delete()
+        .eq('teacher_id', teacherId);
+      
+      if (attendanceError) throw attendanceError;
+
+      // Then delete the teacher
       const { error } = await supabase
         .from('teachers')
         .delete()
         .eq('id', teacherId);
+      
       if (error) throw error;
+      
       fetchTeachers();
     } catch (error) {
       console.error('Error deleting teacher:', error);
+      alert('Error deleting teacher. Please try again.');
     }
   };
 
-  const printClockBookPDF = () => {
+  const printAttendancePDF = () => {
     const doc = new jsPDF();
-    doc.text(`Teacher Clock Book - Week: ${currentWeek.replace('_to_', ' to ')}`, 14, 15);
+    
+    // Title
+    doc.setFontSize(16);
+    doc.text(`Attendance Report - Week: ${currentWeek.replace('_to_', ' to ')}`, 14, 15);
+    
+    // Date generated
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 22);
+    
     const weekDates = getWeekDates();
     const tableData = teachers.map(teacher => [
       `${teacher.surname}, ${teacher.name}`,
@@ -151,15 +172,32 @@ const ClockBook = () => {
       ...weekDates.map(date => {
         const key = `${teacher.id}_${date}`;
         const record = attendance[key] || { status: 'absent', clock_in: '--:--', clock_out: '--:--' };
-        return `${record.status.toUpperCase()} (In: ${record.clock_in} Out: ${record.clock_out})`;
+        return `${record.status.toUpperCase()}\nIn: ${record.clock_in}\nOut: ${record.clock_out}`;
       })
     ]);
+
+    // Table headers
+    const headers = ['Teacher', 'Subject', ...weekDates.map(d => `${getDayName(d)}\n${new Date(d).toLocaleDateString()}`)];
+
     doc.autoTable({
-      head: [['Teacher', 'Subject', ...weekDates.map(d => getDayName(d))]],
+      head: [headers],
       body: tableData,
-      startY: 25,
+      startY: 30,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [41, 128, 185] },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 25 },
+        ...Object.fromEntries(weekDates.map((_, index) => [index + 2, { cellWidth: 25 }]))
+      },
+      didDrawPage: (data) => {
+        // Footer
+        doc.setFontSize(8);
+        doc.text(`Page ${data.pageNumber}`, data.settings.margin.left, doc.internal.pageSize.height - 10);
+      }
     });
-    doc.save(`ClockBook_${currentWeek}.pdf`);
+
+    doc.save(`Attendance_Report_${currentWeek}.pdf`);
   };
 
   return (
@@ -173,7 +211,8 @@ const ClockBook = () => {
         </div>
         <div className="management-buttons">
           <button onClick={() => { setShowAddTeacher(true); setEditingTeacher(null); setTeacherForm({ name: '', surname: '', subject: '' }); }} className="add-btn secondary">Add New Teacher</button>
-          <button onClick={printClockBookPDF} className="add-btn info">Print as PDF</button>
+          <button onClick={() => setShowTeachersTable(true)} className="add-btn warning">Manage Teachers</button>
+          <button onClick={printAttendancePDF} className="add-btn info">Print Attendance PDF</button>
         </div>
       </div>
 
@@ -207,6 +246,51 @@ const ClockBook = () => {
         </div>
       )}
 
+      {/* Teachers Management Table Modal */}
+      {showTeachersTable && (
+        <div className="modal-overlay">
+          <div className="modal large-modal">
+            <div className="modal-header">
+              <h3>Manage Teachers</h3>
+              <button className="close-btn" onClick={() => setShowTeachersTable(false)}>✕</button>
+            </div>
+            <div className="table-container">
+              <table className="teachers-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Surname</th>
+                    <th>Subject</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teachers.map(teacher => (
+                    <tr key={teacher.id}>
+                      <td>{teacher.name}</td>
+                      <td>{teacher.surname}</td>
+                      <td>{teacher.subject || '-'}</td>
+                      <td>
+                        <button onClick={() => handleEditTeacher(teacher)} className="action-btn edit">Edit</button>
+                        <button onClick={() => handleDeleteTeacher(teacher.id)} className="action-btn delete">Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {teachers.length === 0 && (
+                <div className="empty-state">
+                  <p>No teachers found. Add your first teacher!</p>
+                </div>
+              )}
+            </div>
+            <div className="modal-buttons">
+              <button className="btn-cancel" onClick={() => setShowTeachersTable(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="attendance-section">
         <div className="table-header">
           <h3>Weekly Attendance</h3>
@@ -236,7 +320,6 @@ const ClockBook = () => {
                   })}
                   <td>
                     <button onClick={() => handleEditTeacher(teacher)} className="action-btn edit">Edit</button>
-                    <button onClick={() => handleDeleteTeacher(teacher.id)} className="action-btn delete">Delete</button>
                   </td>
                 </tr>
               ))}
@@ -248,15 +331,36 @@ const ClockBook = () => {
       <style jsx>{`
         .clock-book { padding: 2rem; background: #f8fafc; min-height: 100vh; }
         .management-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; background: white; padding: 1.5rem 2rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .add-btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .add-btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin-left: 0.5rem; }
         .add-btn.secondary { background: #10b981; color: white; } 
         .add-btn.info { background: #06b6d4; color: white; }
+        .add-btn.warning { background: #f59e0b; color: white; }
         .attendance-section { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; margin-top: 1rem; }
         .attendance-table { width: 100%; border-collapse: collapse; }
         .attendance-table th, .attendance-table td { border: 1px solid #ddd; padding: 0.5rem; text-align: center; }
         .action-btn { margin: 0 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; border: none; border-radius: 4px; cursor: pointer; }
         .action-btn.edit { background: #3b82f6; color: white; }
         .action-btn.delete { background: #ef4444; color: white; }
+        
+        /* Modal Styles */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal { background: white; border-radius: 12px; padding: 0; max-width: 500px; width: 90%; max-height: 90vh; overflow: hidden; }
+        .modal.large-modal { max-width: 800px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid #e5e7eb; }
+        .modal-header h3 { margin: 0; }
+        .close-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; }
+        .form-group { padding: 1rem 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+        .form-group input { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1.5rem; border-top: 1px solid #e5e7eb; }
+        .btn-cancel { padding: 0.5rem 1rem; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .btn-submit { padding: 0.5rem 1rem; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        
+        /* Teachers Table */
+        .teachers-table { width: 100%; border-collapse: collapse; }
+        .teachers-table th, .teachers-table td { border: 1px solid #ddd; padding: 0.75rem; text-align: left; }
+        .teachers-table th { background: #f8fafc; font-weight: 600; }
+        .empty-state { padding: 2rem; text-align: center; color: #6b7280; }
       `}</style>
     </div>
   );
