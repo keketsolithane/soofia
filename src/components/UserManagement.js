@@ -14,6 +14,7 @@ const ClockBook = () => {
 
   const [teacherForm, setTeacherForm] = useState({ name: '', surname: '', subject: '' });
 
+  // Initialize current week (Mon-Fri)
   const initializeWeek = () => {
     const today = new Date();
     const startOfWeek = new Date(today);
@@ -23,6 +24,7 @@ const ClockBook = () => {
     setCurrentWeek(`${startOfWeek.toISOString().split('T')[0]}_to_${endOfWeek.toISOString().split('T')[0]}`);
   };
 
+  // Get all dates for current week
   const getWeekDates = useCallback(() => {
     if (!currentWeek) return [];
     const [startStr] = currentWeek.split('_to_');
@@ -41,10 +43,11 @@ const ClockBook = () => {
     return date.toLocaleDateString('en-US', { weekday: 'short' });
   };
 
+  // Fetch attendance data
   const fetchAttendance = useCallback(async (teachersList) => {
     try {
       const weekDates = getWeekDates();
-      if (weekDates.length === 0) return;
+      if (!weekDates.length) return;
 
       const { data, error } = await supabase
         .from('attendance')
@@ -72,6 +75,7 @@ const ClockBook = () => {
     }
   }, [getWeekDates]);
 
+  // Fetch teachers list
   const fetchTeachers = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -92,19 +96,18 @@ const ClockBook = () => {
     fetchTeachers();
   }, [fetchTeachers]);
 
+  // Add/Edit teacher
   const handleSubmitTeacher = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (editingTeacher) {
-        // Update teacher
         const { error } = await supabase
           .from('teachers')
           .update(teacherForm)
           .eq('id', editingTeacher.id);
         if (error) throw error;
       } else {
-        // Add new teacher
         const { error } = await supabase
           .from('teachers')
           .insert([teacherForm]);
@@ -131,22 +134,18 @@ const ClockBook = () => {
   const handleDeleteTeacher = async (teacherId) => {
     if (!window.confirm('Are you sure you want to delete this teacher?')) return;
     try {
-      // First delete attendance records for this teacher
       const { error: attendanceError } = await supabase
         .from('attendance')
         .delete()
         .eq('teacher_id', teacherId);
-      
       if (attendanceError) throw attendanceError;
 
-      // Then delete the teacher
       const { error } = await supabase
         .from('teachers')
         .delete()
         .eq('id', teacherId);
-      
       if (error) throw error;
-      
+
       fetchTeachers();
     } catch (error) {
       console.error('Error deleting teacher:', error);
@@ -154,24 +153,36 @@ const ClockBook = () => {
     }
   };
 
+  // Print clock book as PDF
   const printClockBookPDF = () => {
     const doc = new jsPDF();
     doc.text(`Teacher Clock Book - Week: ${currentWeek.replace('_to_', ' to ')}`, 14, 15);
+
     const weekDates = getWeekDates();
-    const tableData = teachers.map(teacher => [
-      `${teacher.surname}, ${teacher.name}`,
-      teacher.subject || '-',
-      ...weekDates.map(date => {
-        const key = `${teacher.id}_${date}`;
-        const record = attendance[key] || { status: 'absent', clock_in: '--:--', clock_out: '--:--' };
-        return `${record.status.toUpperCase()} (In: ${record.clock_in} Out: ${record.clock_out})`;
-      })
-    ]);
+    const tableBody = teachers.map(teacher =>
+      [
+        `${teacher.surname}, ${teacher.name}`,
+        teacher.subject || '-',
+        ...weekDates.map(date => {
+          const key = `${teacher.id}_${date}`;
+          const record = attendance[key] || { status: 'absent', clock_in: '--:--', clock_out: '--:--' };
+          return {
+            content: `${record.status.toUpperCase()}\nIn: ${record.clock_in} Out: ${record.clock_out}`,
+            styles: { fillColor: record.status === 'present' ? [212, 237, 218] : [248, 215, 218], textColor: record.status === 'present' ? [21, 87, 36] : [114, 28, 36] }
+          };
+        })
+      ]
+    );
+
     doc.autoTable({
       head: [['Teacher', 'Subject', ...weekDates.map(d => getDayName(d))]],
-      body: tableData,
+      body: tableBody,
       startY: 25,
+      styles: { fontSize: 8, halign: 'center', valign: 'middle' },
+      headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
+      theme: 'grid'
     });
+
     doc.save(`ClockBook_${currentWeek}.pdf`);
   };
 
@@ -180,9 +191,7 @@ const ClockBook = () => {
       <div className="management-header">
         <div className="header-content">
           <h2>Teacher Clock Book</h2>
-          <p className="week-display">
-            Week: {currentWeek ? currentWeek.replace('_to_', ' to ') : 'Loading...'}
-          </p>
+          <p className="week-display">Week: {currentWeek ? currentWeek.replace('_to_', ' to ') : 'Loading...'}</p>
         </div>
         <div className="management-buttons">
           <button onClick={() => { setShowAddTeacher(true); setEditingTeacher(null); setTeacherForm({ name: '', surname: '', subject: '' }); }} className="add-btn secondary">Add New Teacher</button>
@@ -202,15 +211,15 @@ const ClockBook = () => {
             <form onSubmit={handleSubmitTeacher}>
               <div className="form-group">
                 <label>Name</label>
-                <input type="text" value={teacherForm.name} onChange={e => setTeacherForm({...teacherForm, name: e.target.value})} required />
+                <input type="text" value={teacherForm.name} onChange={e => setTeacherForm({ ...teacherForm, name: e.target.value })} required />
               </div>
               <div className="form-group">
                 <label>Surname</label>
-                <input type="text" value={teacherForm.surname} onChange={e => setTeacherForm({...teacherForm, surname: e.target.value})} required />
+                <input type="text" value={teacherForm.surname} onChange={e => setTeacherForm({ ...teacherForm, surname: e.target.value })} required />
               </div>
               <div className="form-group">
                 <label>Subject</label>
-                <input type="text" value={teacherForm.subject} onChange={e => setTeacherForm({...teacherForm, subject: e.target.value})} />
+                <input type="text" value={teacherForm.subject} onChange={e => setTeacherForm({ ...teacherForm, subject: e.target.value })} />
               </div>
               <div className="modal-buttons">
                 <button type="button" className="btn-cancel" onClick={() => setShowAddTeacher(false)}>Cancel</button>
@@ -221,7 +230,7 @@ const ClockBook = () => {
         </div>
       )}
 
-      {/* Teachers Management Table Modal */}
+      {/* Teachers Management Modal */}
       {showTeachersTable && (
         <div className="modal-overlay">
           <div className="modal large-modal">
@@ -253,11 +262,7 @@ const ClockBook = () => {
                   ))}
                 </tbody>
               </table>
-              {teachers.length === 0 && (
-                <div className="empty-state">
-                  <p>No teachers found. Add your first teacher!</p>
-                </div>
-              )}
+              {teachers.length === 0 && <div className="empty-state">No teachers found.</div>}
             </div>
             <div className="modal-buttons">
               <button className="btn-cancel" onClick={() => setShowTeachersTable(false)}>Close</button>
@@ -266,6 +271,7 @@ const ClockBook = () => {
         </div>
       )}
 
+      {/* Attendance Table */}
       <div className="attendance-section">
         <div className="table-header">
           <h3>Weekly Attendance</h3>
@@ -277,10 +283,7 @@ const ClockBook = () => {
               <tr>
                 <th>Teacher</th>
                 <th>Subject</th>
-                {getWeekDates().map(date => (
-                  <th key={date}>{getDayName(date)}<br/>{new Date(date).toLocaleDateString()}</th>
-                ))}
-                <th>Actions</th>
+                {getWeekDates().map(date => <th key={date}>{getDayName(date)}<br />{new Date(date).toLocaleDateString()}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -291,12 +294,8 @@ const ClockBook = () => {
                   {getWeekDates().map(date => {
                     const key = `${teacher.id}_${date}`;
                     const record = attendance[key] || { status: 'absent', clock_in: '--:--', clock_out: '--:--' };
-                    return <td key={date}>{record.status.toUpperCase()}<br/>In: {record.clock_in} Out: {record.clock_out}</td>;
+                    return <td key={date}>{record.status.toUpperCase()}<br />In: {record.clock_in} Out: {record.clock_out}</td>;
                   })}
-                  <td>
-                    <button onClick={() => handleEditTeacher(teacher)} className="action-btn edit">Edit</button>
-                    <button onClick={() => handleDeleteTeacher(teacher.id)} className="action-btn delete">Delete</button>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -314,11 +313,6 @@ const ClockBook = () => {
         .attendance-section { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; margin-top: 1rem; }
         .attendance-table { width: 100%; border-collapse: collapse; }
         .attendance-table th, .attendance-table td { border: 1px solid #ddd; padding: 0.5rem; text-align: center; }
-        .action-btn { margin: 0 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; border: none; border-radius: 4px; cursor: pointer; }
-        .action-btn.edit { background: #3b82f6; color: white; }
-        .action-btn.delete { background: #ef4444; color: white; }
-        
-        /* Modal Styles */
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .modal { background: white; border-radius: 12px; padding: 0; max-width: 500px; width: 90%; max-height: 90vh; overflow: hidden; }
         .modal.large-modal { max-width: 800px; }
@@ -331,12 +325,13 @@ const ClockBook = () => {
         .modal-buttons { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1.5rem; border-top: 1px solid #e5e7eb; }
         .btn-cancel { padding: 0.5rem 1rem; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; }
         .btn-submit { padding: 0.5rem 1rem; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; }
-        
-        /* Teachers Table */
         .teachers-table { width: 100%; border-collapse: collapse; }
         .teachers-table th, .teachers-table td { border: 1px solid #ddd; padding: 0.75rem; text-align: left; }
         .teachers-table th { background: #f8fafc; font-weight: 600; }
         .empty-state { padding: 2rem; text-align: center; color: #6b7280; }
+        .action-btn { margin: 0 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; border: none; border-radius: 4px; cursor: pointer; }
+        .action-btn.edit { background: #3b82f6; color: white; }
+        .action-btn.delete { background: #ef4444; color: white; }
       `}</style>
     </div>
   );
