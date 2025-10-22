@@ -77,7 +77,7 @@ const Login = () => {
           <div className="login-header">
             <div className="school-logo">
               <div className="logo-icon">🏫</div>
-              <h1>Soofia High School</h1>
+              <h1>Soofia International School</h1>
             </div>
             <h2>Admin Access Required</h2>
             <p>Enter admin password to continue</p>
@@ -132,7 +132,7 @@ const Login = () => {
           <div className="login-header">
             <div className="school-logo">
               <div className="logo-icon">🏫</div>
-              <h1>Soofia High School</h1>
+              <h1>Soofia International School</h1>
             </div>
             <h2>Select Your Role</h2>
             <p>Choose how you want to access the system</p>
@@ -183,7 +183,7 @@ const Login = () => {
         <div className="login-header">
           <div className="school-logo">
             <div className="logo-icon">🏫</div>
-            <h1>Soofia High School</h1>
+            <h1>Soofia International School</h1>
           </div>
           <h2>Welcome Back</h2>
           <p>Sign in to your account</p>
@@ -243,20 +243,34 @@ const Login = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.4) 100%), url('/soofia.jpg') no-repeat center center fixed;
+          background-size: cover;
           padding: 20px;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          position: relative;
+        }
+
+        .login-container::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.3);
+          z-index: 0;
         }
 
         .login-card {
           background: white;
           border-radius: 20px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
           padding: 40px;
           width: 100%;
           max-width: 440px;
           position: relative;
           overflow: hidden;
+          z-index: 1;
         }
 
         .login-card::before {
