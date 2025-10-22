@@ -243,7 +243,7 @@ const Login = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.4) 100%), url('/soofia.jpg') no-repeat center center fixed;
+          background: url('/soofia.jpg') no-repeat center center fixed;
           background-size: cover;
           padding: 20px;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -257,14 +257,14 @@ const Login = () => {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0, 0, 0, 0.3);
+          background: rgba(255, 255, 255, 0.0);
           z-index: 0;
         }
 
         .login-card {
-          background: white;
+          background: rgba(255, 255, 255, 0.85);
           border-radius: 20px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
           padding: 40px;
           width: 100%;
           max-width: 440px;
@@ -280,7 +280,7 @@ const Login = () => {
           left: 0;
           right: 0;
           height: 4px;
-          background: linear-gradient(90deg, #667eea, #764ba2);
+          background: rgba(0,0,0,0.1);
         }
 
         .login-header {
@@ -298,7 +298,7 @@ const Login = () => {
 
         .logo-icon {
           font-size: 2.5rem;
-          background: linear-gradient(135deg, #667eea, #764ba2);
+          background: rgba(255,255,255,0.5);
           border-radius: 12px;
           width: 60px;
           height: 60px;
@@ -355,13 +355,9 @@ const Login = () => {
 
         .form-input:focus {
           outline: none;
-          border-color: #667eea;
-          background: white;
-          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .form-input::placeholder {
-          color: #a0aec0;
+          border-color: #a0aec0;
+          background: #fff;
+          box-shadow: 0 0 0 3px rgba(200,200,200,0.2);
         }
 
         .btn {
@@ -379,29 +375,22 @@ const Login = () => {
           gap: 8px;
         }
 
-        .btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-
         .btn-primary {
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          color: white;
+          background: #e2e8f0;
+          color: #2d3748;
         }
 
         .btn-primary:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+          background: #cbd5e0;
         }
 
         .btn-secondary {
-          background: #718096;
-          color: white;
+          background: #edf2f7;
+          color: #2d3748;
         }
 
         .btn-secondary:hover:not(:disabled) {
-          background: #4a5568;
-          transform: translateY(-1px);
+          background: #e2e8f0;
         }
 
         .btn-outline {
@@ -410,19 +399,9 @@ const Login = () => {
           border: 2px solid #e2e8f0;
         }
 
-        .btn-outline:hover:not(:disabled) {
-          border-color: #667eea;
-          color: #667eea;
-        }
-
         .button-group {
           display: flex;
           gap: 12px;
-        }
-
-        .button-group .btn {
-          width: auto;
-          flex: 1;
         }
 
         .spinner {
@@ -448,7 +427,7 @@ const Login = () => {
           padding: 20px;
           border: 2px solid #e2e8f0;
           border-radius: 16px;
-          background: white;
+          background: rgba(255,255,255,0.9);
           cursor: pointer;
           transition: all 0.2s ease;
           text-align: left;
@@ -459,17 +438,8 @@ const Login = () => {
         }
 
         .role-btn:hover {
-          border-color: #667eea;
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-        }
-
-        .role-btn.security:hover {
-          border-color: #48bb78;
-        }
-
-        .role-btn.admin:hover {
-          border-color: #ed8936;
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
         }
 
         .role-icon {
@@ -479,7 +449,7 @@ const Login = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #f7fafc;
+          background: rgba(255,255,255,0.6);
           border-radius: 12px;
         }
 
@@ -517,9 +487,9 @@ const Login = () => {
         }
 
         .message.info {
-          background: #bee3f8;
-          color: #2c5aa0;
-          border: 1px solid #90cdf4;
+          background: #f0f4f8;
+          color: #2d3748;
+          border: 1px solid #e2e8f0;
         }
 
         .login-footer {
@@ -531,105 +501,8 @@ const Login = () => {
 
         .login-footer p {
           margin: 0;
-          color: #a0aec0;
+          color: #718096;
           font-size: 0.875rem;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 480px) {
-          .login-container {
-            padding: 16px;
-          }
-
-          .login-card {
-            padding: 24px;
-            border-radius: 16px;
-          }
-
-          .school-logo {
-            flex-direction: column;
-            text-align: center;
-          }
-
-          .school-logo h1 {
-            font-size: 1.25rem;
-          }
-
-          .login-header h2 {
-            font-size: 1.5rem;
-          }
-
-          .button-group {
-            flex-direction: column;
-          }
-
-          .role-btn {
-            padding: 16px;
-          }
-
-          .role-icon {
-            font-size: 1.5rem;
-            width: 50px;
-            height: 50px;
-          }
-        }
-
-        /* Dark mode support */
-        @media (prefers-color-scheme: dark) {
-          .login-card {
-            background: #2d3748;
-            color: white;
-          }
-
-          .school-logo h1,
-          .login-header h2 {
-            color: white;
-          }
-
-          .login-header p {
-            color: #cbd5e0;
-          }
-
-          .form-input {
-            background: #4a5568;
-            border-color: #4a5568;
-            color: white;
-          }
-
-          .form-input:focus {
-            background: #2d3748;
-          }
-
-          .form-input::placeholder {
-            color: #a0aec0;
-          }
-
-          .role-btn {
-            background: #4a5568;
-            border-color: #4a5568;
-            color: white;
-          }
-
-          .role-content h3 {
-            color: white;
-          }
-
-          .role-content p {
-            color: #cbd5e0;
-          }
-
-          .btn-outline {
-            color: #cbd5e0;
-            border-color: #4a5568;
-          }
-
-          .login-footer {
-            border-color: #4a5568;
-          }
-
-          .login-footer p {
-            color: #a0aec0;
-          }
         }
       `}</style>
     </div>

@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { useNavigate } from 'react-router-dom'; // <-- for back navigation
 
 const ClockBook = () => {
-  const navigate = useNavigate(); // initialize navigate
   const [teachers, setTeachers] = useState([]);
   const [attendance, setAttendance] = useState({});
   const [currentWeek, setCurrentWeek] = useState('');
@@ -17,7 +15,7 @@ const ClockBook = () => {
     startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 4); // Friday
-
+    
     const weekString = `${startOfWeek.toISOString().split('T')[0]}_to_${endOfWeek.toISOString().split('T')[0]}`;
     setCurrentWeek(weekString);
   };
@@ -25,9 +23,11 @@ const ClockBook = () => {
   // Get current week dates (Monday to Friday)
   const getWeekDates = useCallback(() => {
     if (!currentWeek) return [];
+    
     const [startStr] = currentWeek.split('_to_');
     const startDate = new Date(startStr);
     const dates = [];
+    
     for (let i = 0; i < 5; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
@@ -55,9 +55,10 @@ const ClockBook = () => {
 
       if (error) throw error;
 
+      // Initialize attendance state
       const attendanceState = {};
       const timeEntriesState = {};
-
+      
       teachersList.forEach(teacher => {
         weekDates.forEach(date => {
           const key = `${teacher.id}_${date}`;
@@ -70,7 +71,7 @@ const ClockBook = () => {
           };
         });
       });
-
+      
       setAttendance(attendanceState);
       setTimeEntries(timeEntriesState);
     } catch (error) {
@@ -177,13 +178,12 @@ const ClockBook = () => {
         <div className="management-buttons">
           {/* Back Button */}
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => window.history.back()}
             className="add-btn secondary"
           >
-            Back
+            ← Back
           </button>
-
-          <button
+          <button 
             onClick={saveAttendance}
             className="add-btn primary"
             disabled={loading}
@@ -199,7 +199,7 @@ const ClockBook = () => {
           <h3>Weekly Attendance & Time Tracking</h3>
           <span className="count-badge">{teachers.length} teachers</span>
         </div>
-
+        
         <div className="table-container">
           <table className="attendance-table">
             <thead>
@@ -237,7 +237,7 @@ const ClockBook = () => {
                     const key = `${teacher.id}_${date}`;
                     const status = attendance[key] || 'absent';
                     const timeEntry = timeEntries[key] || { clockIn: '', clockOut: '', hours: '' };
-
+                    
                     return (
                       <td key={date} className="attendance-cell">
                         <div className="time-fields">
@@ -249,21 +249,23 @@ const ClockBook = () => {
                             <option value="present">Present</option>
                             <option value="absent">Absent</option>
                           </select>
-
+                          
                           <input
                             type="time"
                             value={timeEntry.clockIn}
                             onChange={(e) => handleTimeChange(teacher.id, date, 'clockIn', e.target.value)}
                             className="time-input"
+                            placeholder="--:--"
                           />
-
+                          
                           <input
                             type="time"
                             value={timeEntry.clockOut}
                             onChange={(e) => handleTimeChange(teacher.id, date, 'clockOut', e.target.value)}
                             className="time-input"
+                            placeholder="--:--"
                           />
-
+                          
                           <input
                             type="number"
                             step="0.5"
@@ -272,6 +274,7 @@ const ClockBook = () => {
                             value={timeEntry.hours}
                             onChange={(e) => handleTimeChange(teacher.id, date, 'hours', e.target.value)}
                             className="hours-input"
+                            placeholder="0.0"
                           />
                         </div>
                       </td>
@@ -281,7 +284,7 @@ const ClockBook = () => {
               ))}
             </tbody>
           </table>
-
+          
           {teachers.length === 0 && (
             <div className="empty-state">
               <p>No teachers found.</p>
@@ -290,67 +293,54 @@ const ClockBook = () => {
         </div>
       </div>
 
-      {/* Styles */}
+      {/* Styles (unchanged) */}
       <style jsx>{`
-        .clock-book {
-          padding: 2rem;
-          background: #f8fafc;
-          min-height: 100vh;
+        .clock-book { padding: 2rem; background: #f8fafc; min-height: 100vh; }
+        .management-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; background: white; padding: 1.5rem 2rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+        .header-content h2 { margin: 0 0 0.5rem 0; color: #1e293b; font-size: 1.75rem; font-weight: 700; }
+        .week-display { margin: 0; color: #64748b; font-size: 1rem; font-weight: 500; }
+        .management-buttons { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+        .add-btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 0.875rem; white-space: nowrap; }
+        .add-btn.primary { background: #3b82f6; color: white; }
+        .add-btn.primary:hover:not(:disabled) { background: #2563eb; transform: translateY(-1px); }
+        .add-btn.secondary { background: #6b7280; color: white; }
+        .add-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .attendance-section { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); overflow: hidden; }
+        .table-header { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 2rem; border-bottom: 1px solid #e2e8f0; }
+        .table-header h3 { margin: 0; color: #1e293b; font-size: 1.25rem; font-weight: 600; }
+        .count-badge { background: #f1f5f9; color: #64748b; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.875rem; font-weight: 500; }
+        .table-container { overflow-x: auto; }
+        .attendance-table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        .attendance-table th { padding: 1rem; text-align: center; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; font-size: 0.875rem; background: #f8fafc; }
+        .teacher-col { width: 200px; text-align: left; }
+        .day-col { min-width: 200px; }
+        .day-col .date { font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; }
+        .time-headers { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.7rem; font-weight: 500; }
+        .attendance-table td { padding: 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; text-align: center; }
+        .teacher-name { text-align: left; font-weight: 600; }
+        .attendance-cell { vertical-align: middle; }
+        .time-fields { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.5rem; align-items: center; }
+        .status-select { padding: 0.5rem; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.2s ease; width: 100%; }
+        .status-select:focus { outline: none; border-color: #3b82f6; }
+        .status-present { background: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .status-absent { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        .time-input, .hours-input { padding: 0.5rem; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 0.75rem; width: 100%; text-align: center; }
+        .time-input:focus, .hours-input:focus { outline: none; border-color: #3b82f6; }
+        .hours-input { -moz-appearance: textfield; }
+        .hours-input::-webkit-outer-spin-button, .hours-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .subject-tag { background: #f1f5f9; color: #475569; padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.75rem; font-weight: 500; }
+        .no-subject { color: #94a3b8; font-style: italic; }
+        .empty-state { padding: 3rem; text-align: center; color: #64748b; }
+        .empty-state p { margin: 0; font-size: 1rem; }
+        @media (max-width: 768px) {
+          .clock-book { padding: 1rem; }
+          .management-header { flex-direction: column; gap: 1rem; align-items: stretch; }
+          .management-buttons { flex-direction: column; }
+          .table-header { padding: 1rem; }
+          .attendance-table th, .attendance-table td { padding: 0.75rem 0.5rem; }
+          .time-fields { gap: 0.25rem; }
+          .status-select, .time-input, .hours-input { font-size: 0.7rem; padding: 0.25rem; }
         }
-
-        .management-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 2rem;
-          background: white;
-          padding: 1.5rem 2rem;
-          border-radius: 12px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .management-buttons {
-          display: flex;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-        }
-
-        .add-btn {
-          padding: 0.75rem 1.5rem;
-          border: none;
-          border-radius: 8px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-size: 0.875rem;
-          white-space: nowrap;
-        }
-
-        .add-btn.primary {
-          background: #3b82f6;
-          color: white;
-        }
-
-        .add-btn.primary:hover:not(:disabled) {
-          background: #2563eb;
-          transform: translateY(-1px);
-        }
-
-        .add-btn.secondary {
-          background: #e5e7eb;
-          color: #1f2937;
-        }
-
-        .add-btn.secondary:hover {
-          background: #d1d5db;
-        }
-
-        .add-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        /* rest of your previous styles remain unchanged */
       `}</style>
     </div>
   );
